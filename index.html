@@ -3,6 +3,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Живой опрос</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;800&display=swap" rel="stylesheet">
+<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -11,7 +12,12 @@
 body{background:var(--bg);color:#fff;font-family:Manrope,system-ui,sans-serif;font-weight:500;min-height:100vh}
 #app{padding:16px}
 h1{font-weight:800;font-size:clamp(22px,3.4vw,48px);margin-bottom:16px}
-input,button{font:inherit;font-size:18px;padding:10px 14px;border:0;border-radius:10px;margin:4px}
+input,button{font:inherit;font-size:18px;padding:10px 14px;border:0;border-radius:10px;margin:4px 8px 4px 0}
+button{cursor:pointer;background:#fff;color:#12122a;font-weight:800}
+.card{background:var(--empty);border-radius:16px;padding:16px;margin-bottom:14px;max-width:520px}
+.card h2{font-size:18px;font-weight:800;margin-bottom:6px}
+.hint{color:#b8b9d8;font-size:14px;margin-bottom:8px}
+.danger button{background:#ff5c7a;color:#fff}
 .home a{display:block;margin:12px 0;color:#fff;font-size:22px}
 .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:68vh}
 .opt{font-weight:800;font-size:clamp(16px,4.5vw,24px);border-radius:22px;padding:10px;line-height:1.3;cursor:pointer;transition:opacity .2s,transform .2s}
@@ -19,7 +25,7 @@ input,button{font:inherit;font-size:18px;padding:10px 14px;border:0;border-radiu
 .opt.dim{opacity:.35}
 .seat{margin-bottom:10px;color:#b8b9d8}
 .main{display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start}
-.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:6px}
+.grid{display:grid;grid-template-columns:repeat(10,1fr) .6fr repeat(7,1fr);gap:6px}
 .s{aspect-ratio:1;border-radius:10px;display:grid;place-items:center;font-size:clamp(9px,1.2vw,18px);font-weight:800;background:var(--empty);color:#8b8db5;transition:background .5s,color .5s,transform .3s}
 .cnt{display:grid;gap:12px}
 .cd{position:relative;overflow:hidden;border-radius:18px;padding:18px 20px;font-size:clamp(14px,1.8vw,26px);font-weight:800;display:flex;justify-content:space-between;align-items:center}
@@ -35,10 +41,7 @@ input,button{font:inherit;font-size:18px;padding:10px 14px;border:0;border-radiu
 @media print{body{background:#fff}}
 </style></head><body><div id="app"></div>
 <script>
-// ====== ВСТАВЬТЕ СВОИ ДАННЫЕ (Project Settings -> API) ======
-const SUPABASE_URL = 'https://rgblnhjaearokcqsmmzh.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_g0ciM2rdO-6z_WVSnaqTBw_ie1YJFxX';
-// ============================================================
+const {url: SUPABASE_URL, key: SUPABASE_KEY} = window.CFG || {}; // ключи лежат в config.js
 
 const QUESTIONS = {1: 'Как вы проводите свободное время?'};
 const OPTS = [
@@ -49,7 +52,8 @@ const OPTS = [
 ];
 const COL = ['#ff5c7a', '#7c5cff', '#ffb020', '#1fcb9b'];
 const TXT = ['#fff', '#fff', '#1a1a2e', '#1a1a2e'];
-const ROWS = 'ABCDEFGH'.split('');
+const ROWS = 'ABCDEFG'.split('');
+const NUMS = 17; // места 1-10: большая часть (7x10), 11-17: малая (7x7), между ними проход
 
 const {createClient} = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -106,10 +110,20 @@ async function phone() {
   watch(['state'], refresh);
 }
 
+// Тестовый режим (?screen&test): клик по месту показывает его QR, сканируйте телефоном
+function showQR(seat) {
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);display:grid;place-items:center;z-index:9';
+  m.innerHTML = `<div style="background:#fff;color:#000;padding:20px;border-radius:16px;text-align:center"><div id="mq" style="display:flex;justify-content:center"></div><b style="font-size:28px">${seat}</b><p>Наведите камеру телефона. Клик закроет окно.</p></div>`;
+  m.onclick = () => m.remove();
+  document.body.append(m);
+  new QRCode($('#mq'), {text: location.origin + location.pathname + '?seat=' + seat, width: 240, height: 240});
+}
+
 // ---------- Большой экран ----------
 function screenView() {
   let cells = '';
-  ROWS.forEach(r => { for (let n = 1; n <= 12; n++) cells += `<div class="s" data-s="${r}${n}">${r}${n}</div>`; });
+  ROWS.forEach(r => { for (let n = 1; n <= NUMS; n++) { cells += `<div class="s" data-s="${r}${n}">${r}${n}</div>`; if (n === 10) cells += '<div></div>'; } });
   app.innerHTML = '<h1 id="qt"></h1><div class="main"><div class="grid">' + cells + '</div><div class="cnt" id="c"></div></div>';
   async function load() {
     const n = await getQuestion();
@@ -133,6 +147,7 @@ function screenView() {
       `<div class="cd" style="background:${COL[i]};color:${TXT[i]}"><i style="width:${cnt[i] / max * 100}%"></i><span>${o.i} ${o.t}</span><b>${cnt[i]}</b></div>`
     ).join('') + `<div class="tot">Ответили ${answered} из ${people.length} в зале</div>`;
   }
+  if (q.has('test')) $('.grid').onclick = e => { const c = e.target.closest('.s'); if (c) showQR(c.dataset.s); };
   load();
   watch(['people', 'answers', 'state'], load);
 }
@@ -140,9 +155,10 @@ function screenView() {
 // ---------- Админка ----------
 function admin() {
   app.innerHTML = `<h1>Админка</h1>
-    <p>Вопрос №: <input id="qn" type="number" value="1" min="1"> <button id="sq">Переключить</button></p>
-    <p>Освободить место: <input id="rs" placeholder="B7"> <button id="rb">Освободить</button></p>
-    <p><button id="ra">Сбросить всё: места и ответы</button></p><p id="msg"></p>`;
+    <div class="card"><h2>Текущий вопрос</h2><input id="qn" type="number" value="1" min="1"><button id="sq">Показать вопрос</button></div>
+    <div class="card"><h2>Освободить место</h2><p class="hint">Если человек ушёл или отсканировал не тот QR</p><input id="rs" placeholder="B7"><button id="rb">Освободить</button></div>
+    <div class="card danger"><h2>Очистить тестовые данные</h2><p class="hint">Удаляет все места и ответы. Нажмите один раз перед мероприятием.</p><button id="ra">Очистить всё</button></div>
+    <p id="msg"></p>`;
   const run = async f => { const r = await f(); $('#msg').textContent = r.error ? 'Ошибка: ' + r.error.message : 'Готово'; };
   $('#sq').onclick = () => run(() => db.from('state').upsert({id: 1, current_question: +$('#qn').value}));
   $('#rb').onclick = () => run(() => db.from('people').delete().eq('seat', $('#rs').value.toUpperCase()));
@@ -156,7 +172,7 @@ function admin() {
 function qrSheet() {
   const base = location.origin + location.pathname;
   app.innerHTML = '<div class="qrs" id="qs"></div>';
-  ROWS.forEach(r => { for (let n = 1; n <= 12; n++) {
+  ROWS.forEach(r => { for (let n = 1; n <= NUMS; n++) {
     const s = r + n, c = document.createElement('div');
     c.className = 'qc';
     c.innerHTML = `<div></div><b>${s}</b>`;
