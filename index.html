@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Живой опрос</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{--bg:#12122a;--empty:#23244a;--sit:#6f7196}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:#fff;font-family:Manrope,system-ui,sans-serif;font-weight:500;min-height:100vh}
+#app{padding:16px}
+h1{font-weight:800;font-size:clamp(22px,3.4vw,48px);margin-bottom:16px}
+input,button{font:inherit;font-size:18px;padding:10px 14px;border:0;border-radius:10px;margin:4px}
+.home a{display:block;margin:12px 0;color:#fff;font-size:22px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:68vh}
+.opt{font-weight:800;font-size:clamp(16px,4.5vw,24px);border-radius:22px;padding:10px;line-height:1.3;cursor:pointer;transition:opacity .2s,transform .2s}
+.opt.sel{outline:6px solid #fff;transform:scale(1.03)}
+.opt.dim{opacity:.35}
+.seat{margin-bottom:10px;color:#b8b9d8}
+.main{display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:6px}
+.s{aspect-ratio:1;border-radius:10px;display:grid;place-items:center;font-size:clamp(9px,1.2vw,18px);font-weight:800;background:var(--empty);color:#8b8db5;transition:background .5s,color .5s,transform .3s}
+.cnt{display:grid;gap:12px}
+.cd{position:relative;overflow:hidden;border-radius:18px;padding:18px 20px;font-size:clamp(14px,1.8vw,26px);font-weight:800;display:flex;justify-content:space-between;align-items:center}
+.cd i{position:absolute;inset:0 auto 0 0;background:rgba(255,255,255,.28);transition:width .6s}
+.cd span,.cd b{position:relative}
+.cd b{font-size:2em}
+.tot{color:#b8b9d8;font-size:clamp(14px,1.6vw,22px)}
+.qrs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.qc{background:#fff;color:#000;text-align:center;padding:8px;border-radius:8px}
+.qc div{display:flex;justify-content:center}
+.qc b{display:block;font-size:20px}
+@media(max-width:800px){.main{grid-template-columns:1fr}}
+@media print{body{background:#fff}}
+</style></head><body><div id="app"></div>
+<script>
+// ====== ВСТАВЬТЕ СВОИ ДАННЫЕ (Project Settings -> API) ======
+const SUPABASE_URL = 'ВСТАВЬТЕ_PROJECT_URL';
+const SUPABASE_KEY = 'ВСТАВЬТЕ_ANON_ИЛИ_PUBLISHABLE_KEY';
+// ============================================================
+
+const QUESTIONS = {1: 'Как вы проводите свободное время?'};
+const OPTS = [
+  {t: 'Соцсети, скроллинг', i: '📱'},
+  {t: 'Видеоигры', i: '🎮'},
+  {t: 'Саморазвитие: курсы, книги', i: '📚'},
+  {t: 'Прогулки, встречи, разговоры', i: '💬'}
+];
+const COL = ['#ff5c7a', '#7c5cff', '#ffb020', '#1fcb9b'];
+const TXT = ['#fff', '#fff', '#1a1a2e', '#1a1a2e'];
+const ROWS = 'ABCDEFGH'.split('');
+
+const {createClient} = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const q = new URLSearchParams(location.search);
+
+async function getQuestion() {
+  const {data} = await db.from('state').select('current_question').eq('id', 1).maybeSingle();
+  return data ? data.current_question : 1;
+}
+function watch(tables, fn) {
+  let t;
+  const run = () => { clearTimeout(t); t = setTimeout(fn, 150); };
+  const ch = db.channel('w' + Math.random());
+  tables.forEach(tb => ch.on('postgres_changes', {event: '*', schema: 'public', table: tb}, run));
+  ch.subscribe();
+  setInterval(fn, 5000); // запасной опрос, если realtime отвалится
+}
+
+// ---------- Телефон ----------
+async function phone() {
+  let id = localStorage.getItem('did');
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random();
+    localStorage.setItem('did', id);
+  }
+  const seat = q.get('seat').toUpperCase();
+  const r = await db.from('people').upsert({device_id: id, seat});
+  if (r.error) { app.textContent = 'Ошибка: ' + r.error.message; return; }
+  let cur = 0, mine = null;
+  async function refresh() {
+    const n = await getQuestion();
+    if (n !== cur) {
+      cur = n;
+      const {data} = await db.from('answers').select('answer').eq('question_id', n).eq('device_id', id).maybeSingle();
+      mine = data ? data.answer : null;
+    }
+    draw();
+  }
+  function draw() {
+    if (!QUESTIONS[cur]) { app.innerHTML = '<h1>Ждём следующий вопрос</h1>'; return; }
+    app.innerHTML = `<div class="seat">Ваше место: ${seat}</div><h1>${QUESTIONS[cur]}</h1><div class="opts">` +
+      OPTS.map((o, i) => `<button class="opt ${mine === null ? '' : mine === String(i) ? 'sel' : 'dim'}" data-i="${i}" style="background:${COL[i]};color:${TXT[i]}">${o.i}<br>${o.t}</button>`).join('') + '</div>';
+  }
+  app.onclick = async e => {
+    const b = e.target.closest('.opt');
+    if (!b) return;
+    mine = b.dataset.i;
+    draw();
+    await db.from('answers').upsert({question_id: cur, device_id: id, answer: mine});
+  };
+  refresh();
+  watch(['state'], refresh);
+}
+
+// ---------- Большой экран ----------
+function screenView() {
+  let cells = '';
+  ROWS.forEach(r => { for (let n = 1; n <= 12; n++) cells += `<div class="s" data-s="${r}${n}">${r}${n}</div>`; });
+  app.innerHTML = '<h1 id="qt"></h1><div class="main"><div class="grid">' + cells + '</div><div class="cnt" id="c"></div></div>';
+  async function load() {
+    const n = await getQuestion();
+    const [p, a] = await Promise.all([
+      db.from('people').select('*'),
+      db.from('answers').select('*').eq('question_id', n)
+    ]);
+    $('#qt').textContent = QUESTIONS[n] || '';
+    const ans = {}, seated = {}, cnt = [0, 0, 0, 0];
+    (a.data || []).forEach(x => ans[x.device_id] = x.answer);
+    (p.data || []).forEach(x => seated[x.seat] = x.device_id);
+    document.querySelectorAll('.s').forEach(el => {
+      const d = seated[el.dataset.s], an = d ? ans[d] : undefined;
+      if (an !== undefined) { el.style.background = COL[an]; el.style.color = TXT[an]; }
+      else { el.style.background = d ? 'var(--sit)' : ''; el.style.color = d ? '#fff' : ''; }
+    });
+    const people = Object.values(seated);
+    people.forEach(d => { if (ans[d] !== undefined) cnt[ans[d]]++; });
+    const answered = cnt.reduce((x, y) => x + y, 0), max = Math.max(...cnt, 1);
+    $('#c').innerHTML = OPTS.map((o, i) =>
+      `<div class="cd" style="background:${COL[i]};color:${TXT[i]}"><i style="width:${cnt[i] / max * 100}%"></i><span>${o.i} ${o.t}</span><b>${cnt[i]}</b></div>`
+    ).join('') + `<div class="tot">Ответили ${answered} из ${people.length} в зале</div>`;
+  }
+  load();
+  watch(['people', 'answers', 'state'], load);
+}
+
+// ---------- Админка ----------
+function admin() {
+  app.innerHTML = `<h1>Админка</h1>
+    <p>Вопрос №: <input id="qn" type="number" value="1" min="1"> <button id="sq">Переключить</button></p>
+    <p>Освободить место: <input id="rs" placeholder="B7"> <button id="rb">Освободить</button></p>
+    <p><button id="ra">Сбросить всё: места и ответы</button></p><p id="msg"></p>`;
+  const run = async f => { const r = await f(); $('#msg').textContent = r.error ? 'Ошибка: ' + r.error.message : 'Готово'; };
+  $('#sq').onclick = () => run(() => db.from('state').upsert({id: 1, current_question: +$('#qn').value}));
+  $('#rb').onclick = () => run(() => db.from('people').delete().eq('seat', $('#rs').value.toUpperCase()));
+  $('#ra').onclick = () => confirm('Удалить все места и ответы?') && run(async () => {
+    await db.from('answers').delete().neq('device_id', '');
+    return db.from('people').delete().neq('device_id', '');
+  });
+}
+
+// ---------- QR-листы ----------
+function qrSheet() {
+  const base = location.origin + location.pathname;
+  app.innerHTML = '<div class="qrs" id="qs"></div>';
+  ROWS.forEach(r => { for (let n = 1; n <= 12; n++) {
+    const s = r + n, c = document.createElement('div');
+    c.className = 'qc';
+    c.innerHTML = `<div></div><b>${s}</b>`;
+    $('#qs').append(c);
+    new QRCode(c.firstChild, {text: base + '?seat=' + s, width: 120, height: 120});
+  } });
+}
+
+// ---------- Роутер ----------
+if (q.has('seat')) phone();
+else if (q.has('screen')) screenView();
+else if (q.has('admin')) admin();
+else if (q.has('qr')) qrSheet();
+else app.innerHTML = `<h1>Живой опрос</h1><div class="home">
+  <a href="?screen">📺 Большой экран</a><a href="?admin">⚙️ Админка</a>
+  <a href="?qr">🖨️ QR-коды мест</a><a href="?seat=A1">📱 Тест телефона (место A1)</a></div>`;
+</script></body></html>
