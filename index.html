@@ -19,59 +19,78 @@ button{cursor:pointer;background:#fff;color:#12122a;font-weight:800}
 .hint{color:#b8b9d8;font-size:14px;margin-bottom:8px}
 .danger button{background:#ff5c7a;color:#fff}
 .home a{display:block;margin:12px 0;color:#fff;font-size:22px}
-.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:68vh}
-.opt{font-weight:800;font-size:clamp(16px,4.5vw,24px);border-radius:22px;padding:10px;line-height:1.3;cursor:pointer;transition:opacity .2s,transform .2s}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:62vh}
+.opt{font-weight:800;font-size:clamp(16px,4.5vw,24px);border-radius:22px;padding:10px;line-height:1.3;transition:opacity .2s,transform .2s;margin:0}
 .opt.sel{outline:6px solid #fff;transform:scale(1.03)}
 .opt.dim{opacity:.35}
 .seat{margin-bottom:10px;color:#b8b9d8}
-.main{display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start}
-.grid{display:grid;grid-template-columns:repeat(10,1fr) .6fr repeat(7,1fr);gap:6px}
-.s{aspect-ratio:1;border-radius:10px;display:grid;place-items:center;font-size:clamp(9px,1.2vw,18px);font-weight:800;background:var(--empty);color:#8b8db5;transition:background .5s,color .5s,transform .3s}
-.cnt{display:grid;gap:12px}
-.cd{position:relative;overflow:hidden;border-radius:18px;padding:18px 20px;font-size:clamp(14px,1.8vw,26px);font-weight:800;display:flex;justify-content:space-between;align-items:center}
-.cd i{position:absolute;inset:0 auto 0 0;background:rgba(255,255,255,.28);transition:width .6s}
-.cd span,.cd b{position:relative}
-.cd b{font-size:2em}
-.tot{color:#b8b9d8;font-size:clamp(14px,1.6vw,22px)}
+.ok{color:#1fcb9b;font-weight:800;margin-bottom:10px}
+.bad{color:#ff5c7a;font-weight:800;margin-bottom:10px}
 .qrs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .qc{background:#fff;color:#000;text-align:center;padding:8px;border-radius:8px}
 .qc div{display:flex;justify-content:center}
 .qc b{display:block;font-size:20px}
-@media(max-width:800px){.main{grid-template-columns:1fr}}
+
+.scr{height:100vh;padding:3.5vh 4vw;display:flex;flex-direction:column;gap:2vh;overflow:hidden}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:3vw}
+.hd h1{font-size:clamp(24px,3.6vw,64px);line-height:1.1;margin:0;max-width:62vw}
+.sub{color:#8b8db5;font-size:clamp(13px,1.3vw,22px);margin-top:1vh}
+.pg{text-align:right}
+.pills{display:flex;gap:.6vw;justify-content:flex-end}
+.pills i{width:2.2vw;height:.7vh;border-radius:9px;background:rgba(255,255,255,.15);transition:background .3s}
+.pills i.on{background:#fff}
+.who{margin-top:1.6vh;color:#b8b9d8;font-size:clamp(14px,1.5vw,26px);font-weight:800}
+.hall{--d:min(3.6vw,7.4vh);flex:1;display:flex;align-items:center;justify-content:center;gap:calc(var(--d)*1.4)}
+.blk{display:grid;gap:calc(var(--d)*.3)}
+.b10{grid-template-columns:repeat(10,var(--d))}
+.b7{grid-template-columns:repeat(7,var(--d))}
+.s{width:var(--d);height:var(--d);border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.11);transition:background .5s,box-shadow .5s}
+.hall.t .s{cursor:pointer}
+.leg{display:grid;grid-template-columns:repeat(4,1fr);gap:2.5vw}
+.bar{height:.7vh;border-radius:9px;background:rgba(255,255,255,.09);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:9px;transition:width .6s}
+.lg .row{display:flex;justify-content:space-between;align-items:baseline;margin-top:1.4vh;gap:1vw}
+.lg span{font-size:clamp(14px,1.5vw,26px);font-weight:800}
+.lg b{font-size:clamp(30px,3.6vw,64px);font-weight:800;line-height:1}
+.k{display:inline-block;width:.75em;height:.75em;border-radius:50%;margin-right:.55em}
+.dg{position:fixed;right:1vw;bottom:.6vh;font-size:11px;opacity:.3}
+.dg.bad{opacity:1;color:#ff5c7a;font-weight:800;font-size:14px}
 @media print{body{background:#fff}}
 </style></head><body><div id="app"></div>
 <script>
+const V = 'v4';
 const {url: SUPABASE_URL, key: SUPABASE_KEY} = window.CFG || {}; // ключи лежат в config.js
 
-const QUESTIONS = {1: 'Как вы проводите свободное время?'};
-const OPTS = [
-  {t: 'Соцсети, скроллинг', i: '📱'},
-  {t: 'Видеоигры', i: '🎮'},
-  {t: 'Саморазвитие: курсы, книги', i: '📚'},
-  {t: 'Прогулки, встречи, разговоры', i: '💬'}
-];
+// Порядок вариантов = цвета: коралловый, фиолетовый, янтарный, мятный
+const Q = {
+  1: {q: 'Как вы проводите свободное время?', o: [['📱','Соцсети, скроллинг'],['🎮','Видеоигры'],['📚','Саморазвитие: курсы, книги'],['💬','Прогулки, встречи, разговоры']]},
+  2: {q: 'Какое у вас направление?', o: [['⚙️','Backend'],['📊','Data Science'],['🎨','UX/UI и дизайн'],['🧭','Другое или пока выбираю']]},
+  3: {q: 'Что для вас главное в работе?', o: [['💰','Хорошая зарплата'],['🧩','Интересные задачи'],['🤝','Команда и люди'],['🕊️','Свобода и гибкий график']]},
+  4: {q: 'Как вы лучше всего учитесь?', o: [['🎬','Видео и курсы'],['📖','Книги и статьи'],['🛠️','Практика в реальном проекте'],['👥','С наставником или в группе']]},
+  5: {q: 'Что вам нужнее всего от клуба?', o: [['🧑‍🏫','Ментор'],['🌐','Знакомства и нетворкинг'],['💻','Практика и проекты'],['✨','Вдохновение и поддержка']]}
+};
+const TOTAL = 5;
 const COL = ['#ff5c7a', '#7c5cff', '#ffb020', '#1fcb9b'];
 const TXT = ['#fff', '#fff', '#1a1a2e', '#1a1a2e'];
 const ROWS = 'ABCDEFG'.split('');
 const NUMS = 17; // места 1-10: большая часть (7x10), 11-17: малая (7x7), между ними проход
 
-const {createClient} = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const q = new URLSearchParams(location.search);
 
 async function getQuestion() {
   const {data} = await db.from('state').select('current_question').eq('id', 1).maybeSingle();
-  return data ? data.current_question : 1;
+  return data && Q[data.current_question] ? data.current_question : 1;
 }
-function watch(tables, fn) {
+function watch(tables, fn, poll) {
   let t;
   const run = () => { clearTimeout(t); t = setTimeout(fn, 150); };
   const ch = db.channel('w' + Math.random());
   tables.forEach(tb => ch.on('postgres_changes', {event: '*', schema: 'public', table: tb}, run));
   ch.subscribe();
-  setInterval(fn, 5000); // запасной опрос, если realtime отвалится
+  setInterval(fn, poll); // запасной опрос: работает, даже если realtime не включён
 }
 
 // ---------- Телефон ----------
@@ -83,31 +102,37 @@ async function phone() {
   }
   const seat = q.get('seat').toUpperCase();
   const r = await db.from('people').upsert({device_id: id, seat});
-  if (r.error) { app.textContent = 'Ошибка: ' + r.error.message; return; }
-  let cur = 0, mine = null;
+  if (r.error) { app.innerHTML = '<p class="bad">Ошибка входа: ' + r.error.message + '</p>'; return; }
+  let cur = 0, mine = null, st = '';
   async function refresh() {
     const n = await getQuestion();
     if (n !== cur) {
-      cur = n;
+      cur = n; st = '';
       const {data} = await db.from('answers').select('answer').eq('question_id', n).eq('device_id', id).maybeSingle();
       mine = data ? data.answer : null;
     }
     draw();
   }
   function draw() {
-    if (!QUESTIONS[cur]) { app.innerHTML = '<h1>Ждём следующий вопрос</h1>'; return; }
-    app.innerHTML = `<div class="seat">Ваше место: ${seat}</div><h1>${QUESTIONS[cur]}</h1><div class="opts">` +
-      OPTS.map((o, i) => `<button class="opt ${mine === null ? '' : mine === String(i) ? 'sel' : 'dim'}" data-i="${i}" style="background:${COL[i]};color:${TXT[i]}">${o.i}<br>${o.t}</button>`).join('') + '</div>';
+    const Qn = Q[cur];
+    if (!Qn) return;
+    const msg = st === 'ok' ? '<p class="ok">✓ Ответ принят. Ваше место горит на экране. Можно изменить.</p>'
+      : st ? `<p class="bad">Ответ не сохранился: ${st}</p>` : '';
+    app.innerHTML = `<div class="seat">Место ${seat}, вопрос ${cur} из ${TOTAL} (${V})</div><h1>${Qn.q}</h1>${msg}<div class="opts">` +
+      Qn.o.map((o, i) => `<button class="opt ${mine === null ? '' : mine === String(i) ? 'sel' : 'dim'}" data-i="${i}" style="background:${COL[i]};color:${TXT[i]}">${o[0]}<br>${o[1]}</button>`).join('') + '</div>';
   }
   app.onclick = async e => {
     const b = e.target.closest('.opt');
     if (!b) return;
-    mine = b.dataset.i;
+    mine = b.dataset.i; st = ''; draw();
+    const p = await db.from('people').upsert({device_id: id, seat}); // место записывается заново, даже если админ очистил базу
+    const a = await db.from('answers').upsert({question_id: cur, device_id: id, answer: mine}, {onConflict: 'question_id,device_id'});
+    const er = p.error || a.error;
+    st = er ? er.message : 'ok';
     draw();
-    await db.from('answers').upsert({question_id: cur, device_id: id, answer: mine});
   };
   refresh();
-  watch(['state'], refresh);
+  watch(['state'], refresh, 4000);
 }
 
 // Тестовый режим (?screen&test): клик по месту показывает его QR, сканируйте телефоном
@@ -122,45 +147,60 @@ function showQR(seat) {
 
 // ---------- Большой экран ----------
 function screenView() {
-  let cells = '';
-  ROWS.forEach(r => { for (let n = 1; n <= NUMS; n++) { cells += `<div class="s" data-s="${r}${n}">${r}${n}</div>`; if (n === 10) cells += '<div></div>'; } });
-  app.innerHTML = '<h1 id="qt"></h1><div class="main"><div class="grid">' + cells + '</div><div class="cnt" id="c"></div></div>';
+  app.style.padding = '0';
+  const blk = (a, b) => ROWS.map(r => { let h = ''; for (let n = a; n <= b; n++) h += `<div class="s" data-s="${r}${n}"></div>`; return h; }).join('');
+  app.innerHTML = `<div class="scr"><div class="hd"><div><h1 id="qt"></h1><p class="sub">Отсканируйте QR на своём кресле и выберите ответ</p></div>
+    <div class="pg"><div class="pills">${Object.keys(Q).map(n => `<i data-n="${n}"></i>`).join('')}</div><p class="who" id="who"></p></div></div>
+    <div class="hall${q.has('test') ? ' t' : ''}"><div class="blk b10">${blk(1, 10)}</div><div class="blk b7">${blk(11, 17)}</div></div>
+    <div class="leg" id="leg"></div><div class="dg" id="dg"></div></div>`;
   async function load() {
     const n = await getQuestion();
     const [p, a] = await Promise.all([
       db.from('people').select('*'),
       db.from('answers').select('*').eq('question_id', n)
     ]);
-    $('#qt').textContent = QUESTIONS[n] || '';
+    $('#qt').textContent = Q[n].q;
+    document.querySelectorAll('.pills i').forEach(i => i.className = +i.dataset.n === n ? 'on' : '');
     const ans = {}, seated = {}, cnt = [0, 0, 0, 0];
     (a.data || []).forEach(x => ans[x.device_id] = x.answer);
     (p.data || []).forEach(x => seated[x.seat] = x.device_id);
     document.querySelectorAll('.s').forEach(el => {
       const d = seated[el.dataset.s], an = d ? ans[d] : undefined;
-      if (an !== undefined) { el.style.background = COL[an]; el.style.color = TXT[an]; }
-      else { el.style.background = d ? 'var(--sit)' : ''; el.style.color = d ? '#fff' : ''; }
+      if (an !== undefined && COL[an]) { el.style.background = COL[an]; el.style.boxShadow = `0 0 calc(var(--d)*.6) ${COL[an]}aa`; }
+      else if (d) { el.style.background = '#5d6090'; el.style.boxShadow = 'none'; }
+      else { el.style.background = ''; el.style.boxShadow = ''; }
     });
     const people = Object.values(seated);
-    people.forEach(d => { if (ans[d] !== undefined) cnt[ans[d]]++; });
-    const answered = cnt.reduce((x, y) => x + y, 0), max = Math.max(...cnt, 1);
-    $('#c').innerHTML = OPTS.map((o, i) =>
-      `<div class="cd" style="background:${COL[i]};color:${TXT[i]}"><i style="width:${cnt[i] / max * 100}%"></i><span>${o.i} ${o.t}</span><b>${cnt[i]}</b></div>`
-    ).join('') + `<div class="tot">Ответили ${answered} из ${people.length} в зале</div>`;
+    people.forEach(d => { if (COL[ans[d]]) cnt[ans[d]]++; });
+    const answered = cnt.reduce((x, y) => x + y, 0);
+    $('#who').textContent = 'Ответили ' + answered + ' из ' + people.length;
+    $('#leg').innerHTML = Q[n].o.map((o, i) =>
+      `<div class="lg"><div class="bar"><i style="width:${answered ? cnt[i] / answered * 100 : 0}%;background:${COL[i]}"></i></div>
+       <div class="row"><span><i class="k" style="background:${COL[i]};box-shadow:0 0 12px ${COL[i]}aa"></i>${o[1]}</span><b style="color:${COL[i]}">${cnt[i]}</b></div></div>`
+    ).join('');
+    const er = p.error || a.error, dg = $('#dg');
+    dg.className = er ? 'dg bad' : 'dg';
+    dg.textContent = er ? 'Ошибка базы: ' + er.message : V + ' ' + new Date().toLocaleTimeString();
   }
-  if (q.has('test')) $('.grid').onclick = e => { const c = e.target.closest('.s'); if (c) showQR(c.dataset.s); };
+  if (q.has('test')) $('.hall').onclick = e => { const c = e.target.closest('.s'); if (c) showQR(c.dataset.s); };
   load();
-  watch(['people', 'answers', 'state'], load);
+  watch(['people', 'answers', 'state'], load, 2000);
 }
 
 // ---------- Админка ----------
 function admin() {
   app.innerHTML = `<h1>Админка</h1>
-    <div class="card"><h2>Текущий вопрос</h2><input id="qn" type="number" value="1" min="1"><button id="sq">Показать вопрос</button></div>
+    <div class="card"><h2>Текущий вопрос</h2><p class="hint" id="cq"></p><div id="qb">${Object.keys(Q).map(n => `<button data-n="${n}">${n}</button>`).join('')}</div><button id="nx">Следующий вопрос</button></div>
     <div class="card"><h2>Освободить место</h2><p class="hint">Если человек ушёл или отсканировал не тот QR</p><input id="rs" placeholder="B7"><button id="rb">Освободить</button></div>
     <div class="card danger"><h2>Очистить тестовые данные</h2><p class="hint">Удаляет все места и ответы. Нажмите один раз перед мероприятием.</p><button id="ra">Очистить всё</button></div>
     <p id="msg"></p>`;
-  const run = async f => { const r = await f(); $('#msg').textContent = r.error ? 'Ошибка: ' + r.error.message : 'Готово'; };
-  $('#sq').onclick = () => run(() => db.from('state').upsert({id: 1, current_question: +$('#qn').value}));
+  let cq = 1;
+  const show = n => { cq = n; $('#cq').textContent = 'Сейчас на экране: вопрос ' + n + '. ' + Q[n].q; };
+  const run = async f => { const r = await f(); $('#msg').textContent = r.error ? 'Ошибка: ' + r.error.message : 'Готово'; return r; };
+  const set = async n => { const r = await run(() => db.from('state').upsert({id: 1, current_question: n})); if (!r.error) show(n); };
+  getQuestion().then(show);
+  $('#qb').onclick = e => { if (e.target.dataset.n) set(+e.target.dataset.n); };
+  $('#nx').onclick = () => set(Math.min(cq + 1, TOTAL));
   $('#rb').onclick = () => run(() => db.from('people').delete().eq('seat', $('#rs').value.toUpperCase()));
   $('#ra').onclick = () => confirm('Удалить все места и ответы?') && run(async () => {
     await db.from('answers').delete().neq('device_id', '');
@@ -186,7 +226,7 @@ if (q.has('seat')) phone();
 else if (q.has('screen')) screenView();
 else if (q.has('admin')) admin();
 else if (q.has('qr')) qrSheet();
-else app.innerHTML = `<h1>Живой опрос</h1><div class="home">
-  <a href="?screen">📺 Большой экран</a><a href="?admin">⚙️ Админка</a>
-  <a href="?qr">🖨️ QR-коды мест</a><a href="?seat=A1">📱 Тест телефона (место A1)</a></div>`;
+else app.innerHTML = `<h1>Живой опрос ${V}</h1><div class="home">
+  <a href="?screen">📺 Большой экран</a><a href="?screen&test">🧪 Экран в тесте (клик по месту показывает QR)</a>
+  <a href="?admin">⚙️ Админка</a><a href="?qr">🖨️ QR-коды мест</a><a href="?seat=A1">📱 Тест телефона (место A1)</a></div>`;
 </script></body></html>
