@@ -40,7 +40,7 @@ button{cursor:pointer;background:#fff;color:#12122a;font-weight:800}
 .pills i{width:2.2vw;height:.7vh;border-radius:9px;background:rgba(255,255,255,.15);transition:background .3s}
 .pills i.on{background:#fff}
 .who{margin-top:1.6vh;color:#b8b9d8;font-size:clamp(14px,1.5vw,26px);font-weight:800}
-.hall{--d:min(3.6vw,7.4vh);flex:1;display:flex;align-items:center;justify-content:center;gap:calc(var(--d)*1.4)}
+.hall{--d:min(3.4vw,6.2vh);flex:1;display:flex;align-items:center;justify-content:center;gap:calc(var(--d)*1.4)}
 .blk{display:grid;gap:calc(var(--d)*.3)}
 .b10{grid-template-columns:repeat(10,var(--d))}
 .b7{grid-template-columns:repeat(7,var(--d))}
@@ -59,23 +59,32 @@ button{cursor:pointer;background:#fff;color:#12122a;font-weight:800}
 .nav.show{opacity:1}
 .nav.show button{pointer-events:auto}
 .nav button{width:3.4vw;height:3.4vw;border-radius:50%;font-size:2vw;line-height:1;padding:0;margin:0;background:rgba(255,255,255,.16);color:#fff}
+.opts.many{gap:8px}
+.opts.many .opt{font-size:clamp(13px,3.6vw,18px);padding:6px;overflow-wrap:anywhere;hyphens:auto}
+.leg{row-gap:1.8vh}
+.leg.many .lg span{font-size:clamp(11px,1.15vw,20px)}
+.leg.many .lg b{font-size:clamp(20px,2.4vw,42px)}
 @media print{body{background:#fff}}
 </style></head><body><div id="app"></div>
 <script>
-const V = 'v5';
+const V = 'v7';
 const {url: SUPABASE_URL, key: SUPABASE_KEY} = window.CFG || {}; // ключи лежат в config.js
 
 // Порядок вариантов = цвета: коралловый, фиолетовый, янтарный, мятный
 const Q = {
   1: {q: 'Как вы проводите свободное время?', o: [['📱','Соцсети, скроллинг'],['🎮','Видеоигры'],['📚','Саморазвитие: курсы, книги'],['💬','Прогулки, встречи, разговоры']]},
-  2: {q: 'Какое у вас направление?', o: [['⚙️','Backend'],['📊','Data Science'],['🎨','UX/UI и дизайн'],['🧭','Другое или пока выбираю']]},
+  2: {q: 'Какое у вас направление?', c: ['#7c5cff','#38bdf8','#ff5c7a','#ffc933','#f06bd6','#1fcb9b','#a3e635','#ff8a3d'], o: [['⚙️','Backend'],['🖥️','Frontend'],['🛡️','Кибербезопасность'],['♾️','DevOps'],['🎨','UX/UI'],['📋','Project Manager'],['📊','Data Scientist'],['📈','Бизнес-аналитик']]},
   3: {q: 'Что для вас главное в работе?', o: [['💰','Хорошая зарплата'],['🧩','Интересные задачи'],['🤝','Команда и люди'],['🕊️','Свобода и гибкий график']]},
   4: {q: 'Как вы лучше всего учитесь?', o: [['🎬','Видео и курсы'],['📖','Книги и статьи'],['🛠️','Практика в реальном проекте'],['👥','С наставником или в группе']]},
   5: {q: 'Что вам нужнее всего от клуба?', o: [['🧑‍🏫','Ментор'],['🌐','Знакомства и нетворкинг'],['💻','Практика и проекты'],['✨','Вдохновение и поддержка']]}
 };
 const TOTAL = 5;
 const COL = ['#ff5c7a', '#7c5cff', '#ffb020', '#1fcb9b'];
-const TXT = ['#fff', '#fff', '#1a1a2e', '#1a1a2e'];
+const cols = n => Q[n].c || COL; // у вопроса может быть своя палитра
+const ink = c => { // тёмный или белый текст в зависимости от яркости цвета
+  const f = k => { const v = parseInt(c.substr(k, 2), 16) / 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
+  return .2126 * f(1) + .7152 * f(3) + .0722 * f(5) > .35 ? '#1a1a2e' : '#fff';
+};
 const ROWS = 'ABCDEFG'.split('');
 const NUMS = 17; // места 1-10: большая часть (7x10), 11-17: малая (7x7), между ними проход
 
@@ -106,25 +115,28 @@ async function phone() {
   }
   const seat = q.get('seat').toUpperCase();
   const r = await db.from('people').upsert({device_id: id, seat});
+  if (!r.error) await db.from('people').delete().eq('seat', seat).neq('device_id', id); // новый сканирующий забирает место у предыдущего
   if (r.error) { app.innerHTML = '<p class="bad">Ошибка входа: ' + r.error.message + '</p>'; return; }
   let cur = 0, mine = null, st = '';
   async function refresh() {
-    const n = await getQuestion();
-    if (n !== cur) {
-      cur = n; st = '';
-      const {data} = await db.from('answers').select('answer').eq('question_id', n).eq('device_id', id).maybeSingle();
-      mine = data ? data.answer : null;
-    }
-    draw();
+    try {
+      const n = await getQuestion();
+      if (n !== cur) {
+        const {data} = await db.from('answers').select('answer').eq('question_id', n).eq('device_id', id).maybeSingle();
+        cur = n; st = ''; mine = data ? data.answer : null;
+      }
+      draw();
+    } catch (e) { if (!cur) app.innerHTML = '<p class="hint">Нет связи, пробуем снова…</p>'; }
   }
   function draw() {
     const Qn = Q[cur];
-    if (!Qn) return;
+    if (!Qn) { app.innerHTML = '<p class="hint">Подключаемся…</p>'; return; }
     const msg = st === 'ok' ? '<p class="ok">✓ Ответ принят, ваше место горит. Нажмите на него ещё раз, чтобы снять.</p>'
       : st === 'off' ? '<p class="hint">Ответ снят, ваше место погасло.</p>'
+      : st === 'lost' ? '<p class="bad">Это место занял другой человек или данные сброшены. Отсканируйте QR на кресле ещё раз.</p>'
       : st ? `<p class="bad">Ответ не сохранился: ${st}</p>` : '';
-    app.innerHTML = `<div class="seat">Место ${seat}, вопрос ${cur} из ${TOTAL} (${V})</div><h1>${Qn.q}</h1>${msg}<div class="opts">` +
-      Qn.o.map((o, i) => `<button class="opt ${mine === null ? '' : mine === String(i) ? 'sel' : 'dim'}" data-i="${i}" style="background:${COL[i]};color:${TXT[i]}">${o[0]}<br>${o[1]}</button>`).join('') + '</div>';
+    app.innerHTML = `<div class="seat">Место ${seat}, вопрос ${cur} из ${TOTAL} (${V})</div><h1>${Qn.q}</h1>${msg}<div class="opts${Qn.o.length > 4 ? ' many' : ''}">` +
+      Qn.o.map((o, i) => `<button class="opt ${mine === null ? '' : mine === String(i) ? 'sel' : 'dim'}" data-i="${i}" style="background:${cols(cur)[i]};color:${ink(cols(cur)[i])}">${o[0]}<br>${o[1]}</button>`).join('') + '</div>';
   }
   app.onclick = async e => {
     const b = e.target.closest('.opt');
@@ -136,14 +148,19 @@ async function phone() {
       return;
     }
     mine = b.dataset.i; st = ''; draw();
-    const p = await db.from('people').upsert({device_id: id, seat}); // место записывается заново, даже если админ очистил базу
+    const me = await db.from('people').select('seat').eq('device_id', id).maybeSingle();
+    if (!me.data || me.data.seat !== seat) { mine = null; st = 'lost'; draw(); return; } // место занял другой или базу очистили
     const a = await db.from('answers').upsert({question_id: cur, device_id: id, answer: mine}, {onConflict: 'question_id,device_id'});
-    const er = p.error || a.error;
+    const er = a.error;
     st = er ? er.message : 'ok';
     draw();
   };
   refresh();
-  watch(['state'], refresh, 4000);
+  watch(['state'], refresh, 3000);
+  // телефон "просыпается" или возвращается в браузер: сразу обновить вопрос
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+  window.addEventListener('focus', refresh);
+  window.addEventListener('online', refresh);
 }
 
 // Тестовый режим (?screen&test): клик по месту показывает его QR, сканируйте телефоном
@@ -174,22 +191,23 @@ function screenView() {
     ]);
     $('#qt').textContent = Q[n].q;
     document.querySelectorAll('.pills i').forEach(i => i.className = +i.dataset.n === n ? 'on' : '');
-    const ans = {}, seated = {}, cnt = [0, 0, 0, 0];
+    const C = cols(n), ans = {}, seated = {}, cnt = Q[n].o.map(() => 0);
     (a.data || []).forEach(x => ans[x.device_id] = x.answer);
     (p.data || []).forEach(x => seated[x.seat] = x.device_id);
     document.querySelectorAll('.s').forEach(el => {
       const d = seated[el.dataset.s], an = d ? ans[d] : undefined;
-      if (an !== undefined && COL[an]) { el.style.background = COL[an]; el.style.boxShadow = `0 0 calc(var(--d)*.6) ${COL[an]}aa`; }
+      if (an !== undefined && C[an]) { el.style.background = C[an]; el.style.boxShadow = `0 0 calc(var(--d)*.6) ${C[an]}aa`; }
       else { el.style.background = ''; el.style.boxShadow = ''; }
     });
     const people = Object.values(seated);
-    people.forEach(d => { if (COL[ans[d]]) cnt[ans[d]]++; });
+    people.forEach(d => { if (C[ans[d]]) cnt[ans[d]]++; });
     const answered = cnt.reduce((x, y) => x + y, 0);
     $('#who').textContent = 'Ответили ' + answered;
     $('#leg').innerHTML = Q[n].o.map((o, i) =>
-      `<div class="lg"><div class="bar"><i style="width:${answered ? cnt[i] / answered * 100 : 0}%;background:${COL[i]}"></i></div>
-       <div class="row"><span><i class="k" style="background:${COL[i]};box-shadow:0 0 12px ${COL[i]}aa"></i>${o[1]}</span><b style="color:${COL[i]}">${cnt[i]}</b></div></div>`
+      `<div class="lg"><div class="bar"><i style="width:${answered ? cnt[i] / answered * 100 : 0}%;background:${C[i]}"></i></div>
+       <div class="row"><span><i class="k" style="background:${C[i]};box-shadow:0 0 12px ${C[i]}aa"></i>${o[1]}</span><b style="color:${C[i]}">${cnt[i]}</b></div></div>`
     ).join('');
+    $('#leg').className = 'leg' + (Q[n].o.length > 4 ? ' many' : '');
     const er = p.error || a.error, dg = $('#dg');
     dg.className = er ? 'dg bad' : 'dg';
     dg.textContent = er ? 'Ошибка базы: ' + er.message : V + ' ' + new Date().toLocaleTimeString();
