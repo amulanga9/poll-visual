@@ -55,10 +55,14 @@ button{cursor:pointer;background:#fff;color:#12122a;font-weight:800}
 .k{display:inline-block;width:.75em;height:.75em;border-radius:50%;margin-right:.55em}
 .dg{position:fixed;right:1vw;bottom:.6vh;font-size:11px;opacity:.3}
 .dg.bad{opacity:1;color:#ff5c7a;font-weight:800;font-size:14px}
+.nav{position:fixed;left:0;right:0;bottom:1.5vh;display:flex;justify-content:space-between;padding:0 1.5vw;opacity:0;transition:opacity .3s;pointer-events:none}
+.nav.show{opacity:1}
+.nav.show button{pointer-events:auto}
+.nav button{width:3.4vw;height:3.4vw;border-radius:50%;font-size:2vw;line-height:1;padding:0;margin:0;background:rgba(255,255,255,.16);color:#fff}
 @media print{body{background:#fff}}
 </style></head><body><div id="app"></div>
 <script>
-const V = 'v4';
+const V = 'v5';
 const {url: SUPABASE_URL, key: SUPABASE_KEY} = window.CFG || {}; // ключи лежат в config.js
 
 // Порядок вариантов = цвета: коралловый, фиолетовый, янтарный, мятный
@@ -116,7 +120,8 @@ async function phone() {
   function draw() {
     const Qn = Q[cur];
     if (!Qn) return;
-    const msg = st === 'ok' ? '<p class="ok">✓ Ответ принят. Ваше место горит на экране. Можно изменить.</p>'
+    const msg = st === 'ok' ? '<p class="ok">✓ Ответ принят, ваше место горит. Нажмите на него ещё раз, чтобы снять.</p>'
+      : st === 'off' ? '<p class="hint">Ответ снят, ваше место погасло.</p>'
       : st ? `<p class="bad">Ответ не сохранился: ${st}</p>` : '';
     app.innerHTML = `<div class="seat">Место ${seat}, вопрос ${cur} из ${TOTAL} (${V})</div><h1>${Qn.q}</h1>${msg}<div class="opts">` +
       Qn.o.map((o, i) => `<button class="opt ${mine === null ? '' : mine === String(i) ? 'sel' : 'dim'}" data-i="${i}" style="background:${COL[i]};color:${TXT[i]}">${o[0]}<br>${o[1]}</button>`).join('') + '</div>';
@@ -124,6 +129,12 @@ async function phone() {
   app.onclick = async e => {
     const b = e.target.closest('.opt');
     if (!b) return;
+    if (mine === b.dataset.i) { // повторное нажатие снимает ответ
+      mine = null; st = ''; draw();
+      const d = await db.from('answers').delete().eq('question_id', cur).eq('device_id', id);
+      st = d.error ? d.error.message : 'off'; draw();
+      return;
+    }
     mine = b.dataset.i; st = ''; draw();
     const p = await db.from('people').upsert({device_id: id, seat}); // место записывается заново, даже если админ очистил базу
     const a = await db.from('answers').upsert({question_id: cur, device_id: id, answer: mine}, {onConflict: 'question_id,device_id'});
@@ -152,9 +163,11 @@ function screenView() {
   app.innerHTML = `<div class="scr"><div class="hd"><div><h1 id="qt"></h1><p class="sub">Отсканируйте QR на своём кресле и выберите ответ</p></div>
     <div class="pg"><div class="pills">${Object.keys(Q).map(n => `<i data-n="${n}"></i>`).join('')}</div><p class="who" id="who"></p></div></div>
     <div class="hall${q.has('test') ? ' t' : ''}"><div class="blk b10">${blk(1, 10)}</div><div class="blk b7">${blk(11, 17)}</div></div>
-    <div class="leg" id="leg"></div><div class="dg" id="dg"></div></div>`;
+    <div class="leg" id="leg"></div><div class="dg" id="dg"></div></div><div class="nav"><button id="pv">‹</button><button id="nx2">›</button></div>`;
+  let curQ = 1, busy = false, hide;
   async function load() {
     const n = await getQuestion();
+    if (!busy) curQ = n;
     const [p, a] = await Promise.all([
       db.from('people').select('*'),
       db.from('answers').select('*').eq('question_id', n)
@@ -167,13 +180,12 @@ function screenView() {
     document.querySelectorAll('.s').forEach(el => {
       const d = seated[el.dataset.s], an = d ? ans[d] : undefined;
       if (an !== undefined && COL[an]) { el.style.background = COL[an]; el.style.boxShadow = `0 0 calc(var(--d)*.6) ${COL[an]}aa`; }
-      else if (d) { el.style.background = '#5d6090'; el.style.boxShadow = 'none'; }
       else { el.style.background = ''; el.style.boxShadow = ''; }
     });
     const people = Object.values(seated);
     people.forEach(d => { if (COL[ans[d]]) cnt[ans[d]]++; });
     const answered = cnt.reduce((x, y) => x + y, 0);
-    $('#who').textContent = 'Ответили ' + answered + ' из ' + people.length;
+    $('#who').textContent = 'Ответили ' + answered;
     $('#leg').innerHTML = Q[n].o.map((o, i) =>
       `<div class="lg"><div class="bar"><i style="width:${answered ? cnt[i] / answered * 100 : 0}%;background:${COL[i]}"></i></div>
        <div class="row"><span><i class="k" style="background:${COL[i]};box-shadow:0 0 12px ${COL[i]}aa"></i>${o[1]}</span><b style="color:${COL[i]}">${cnt[i]}</b></div></div>`
@@ -182,6 +194,24 @@ function screenView() {
     dg.className = er ? 'dg bad' : 'dg';
     dg.textContent = er ? 'Ошибка базы: ' + er.message : V + ' ' + new Date().toLocaleTimeString();
   }
+  // Управление вопросами только с экрана ведущей: стрелки, PageUp/PageDown, кликер или кнопки (появляются при движении мыши)
+  const go = async d => {
+    const m = Math.min(TOTAL, Math.max(1, curQ + d));
+    if (m === curQ) return;
+    curQ = m; busy = true;
+    await db.from('state').upsert({id: 1, current_question: m});
+    busy = false; load();
+  };
+  $('#pv').onclick = () => go(-1);
+  $('#nx2').onclick = () => go(1);
+  document.onkeydown = e => {
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(1); }
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(-1); }
+  };
+  document.onmousemove = () => {
+    $('.nav').classList.add('show'); clearTimeout(hide);
+    hide = setTimeout(() => $('.nav').classList.remove('show'), 2500);
+  };
   if (q.has('test')) $('.hall').onclick = e => { const c = e.target.closest('.s'); if (c) showQR(c.dataset.s); };
   load();
   watch(['people', 'answers', 'state'], load, 2000);
