@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Живой опрос</title>
+<title>Живой опрос · Jonli soʻrovnoma</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;800&display=swap" rel="stylesheet">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -69,6 +69,29 @@ button{cursor:pointer;background:#fff;color:#12122a;font-weight:800}
 .lg.on{transform:scale(1.03)}
 .flt{display:inline-block;margin-top:1vh;padding:.35em .9em;border-radius:99px;background:rgba(255,255,255,.14);font-size:clamp(12px,1.2vw,20px);font-weight:800;cursor:pointer}
 .flt:empty{display:none}
+/* --- двуязычные подписи --- */
+.uz{display:block;font-weight:500;opacity:.72;font-size:.8em;line-height:1.25;margin-top:.2em}
+h1 .uz{font-size:.5em}
+.opt .uz{font-size:.68em}
+.opts.many .opt .uz{font-size:.85em}
+.sub .uz{font-size:.9em}
+.who .uz{font-size:.7em}
+.lg .uz{font-size:.65em}
+.leg.many .lg .uz{font-size:.8em}
+.lg span{display:flex;align-items:flex-start}
+.lg .k{flex:none;margin-top:.12em}
+.lg .row{align-items:center}
+.flt .uz{display:inline;font-size:1em}
+.flt .uz::before{content:' · '}
+.lang{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
+.lang .grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lang .grp>span{font-size:12px;color:#b8b9d8;min-width:120px}
+.lang button{font-size:13px;padding:6px 12px;margin:0;border-radius:99px;background:rgba(255,255,255,.14);color:#fff}
+.lang button.on{background:#fff;color:#12122a}
+.nav .lang{flex-direction:row;gap:2vw;margin:0;align-items:center}
+.nav .lang .grp{gap:.5vw;flex-wrap:nowrap}
+.nav .lang .grp>span{font-size:max(11px,1vw);min-width:0;margin-right:.3vw}
+.nav .lang button{width:auto;height:auto;border-radius:99px;font-size:max(12px,1.1vw);padding:.4em .9em;line-height:1.2}
 @media print{body{background:#fff}}
 </style></head><body><div id="app"></div>
 <script>
@@ -77,13 +100,11 @@ const {url: SUPABASE_URL, key: SUPABASE_KEY} = window.CFG || {}; // ключи �
 
 // Порядок вариантов = цвета: коралловый, фиолетовый, янтарный, мятный
 const Q = {
-  1: {q: 'Как вы проводите свободное время?', o: [['📱','Соцсети, скроллинг'],['🎮','Видеоигры'],['📚','Саморазвитие: курсы, книги'],['💬','Прогулки, встречи, разговоры']]},
-  2: {q: 'Какое у вас направление?', c: ['#7c5cff','#38bdf8','#ff5c7a','#ffc933','#f06bd6','#1fcb9b','#a3e635','#ff8a3d'], o: [['⚙️','Backend'],['🖥️','Frontend'],['🛡️','Кибербезопасность'],['♾️','DevOps'],['🎨','UX/UI'],['📋','Project Manager'],['📊','Data Scientist'],['📈','Бизнес-аналитик']]},
-  3: {q: 'Что для вас главное в работе?', o: [['💰','Хорошая зарплата'],['🧩','Интересные задачи'],['🤝','Команда и люди'],['🕊️','Свобода и гибкий график']]},
-  4: {q: 'Как вы лучше всего учитесь?', o: [['🎬','Видео и курсы'],['📖','Книги и статьи'],['🛠️','Практика в реальном проекте'],['👥','С наставником или в группе']]},
-  5: {q: 'Что вам нужнее всего от клуба?', o: [['🧑‍🏫','Ментор'],['🌐','Знакомства и нетворкинг'],['💻','Практика и проекты'],['✨','Вдохновение и поддержка']]}
+  1: {q: ['Как вы проводите свободное время?', 'Boʻsh vaqtingizni qanday oʻtkazasiz?'], o: [['📱','Соцсети, скроллинг','Ijtimoiy tarmoqlar, skroll'],['🎮','Видеоигры','Video oʻyinlar'],['📚','Саморазвитие: курсы, книги','Oʻz ustingizda ishlash: kurslar, kitoblar'],['💬','Прогулки, встречи, разговоры','Sayr, uchrashuvlar, suhbatlar']]},
+  2: {q: ['Какое у вас направление?', 'Sizning yoʻnalishingiz qaysi?'], c: ['#7c5cff','#38bdf8','#ff5c7a','#ffc933','#f06bd6','#1fcb9b','#a3e635','#ff8a3d'], o: [['⚙️','Backend'],['🖥️','Frontend'],['🛡️','Кибербезопасность','Kiberxavfsizlik'],['♾️','DevOps'],['🎨','UX/UI'],['📋','Project Manager'],['📊','Data Scientist'],['📈','Бизнес-аналитик','Biznes-analitik']]},
+  3: {q: ['Как вы общаетесь и учитесь?', 'Qanday muloqot qilasiz va oʻrganasiz?'], o: [['💬','Онлайн: чаты, видео, курсы','Onlayn: chatlar, video, kurslar'],['👥','Вживую: встречи, группы, наставник','Jonli: uchrashuvlar, guruhlar, ustoz'],['🛠️','В деле: учусь на проектах вместе с командой','Amalda: jamoa bilan loyihalarda oʻrganaman'],['📖','Самостоятельно: книги и статьи','Mustaqil: kitoblar va maqolalar']]}
 };
-const TOTAL = 5;
+const TOTAL = 3;
 const COL = ['#ff5c7a', '#7c5cff', '#ffb020', '#1fcb9b'];
 const cols = n => Q[n].c || COL; // у вопроса может быть своя палитра
 const ink = c => { // тёмный или белый текст в зависимости от яркости цвета
@@ -97,6 +118,22 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const q = new URLSearchParams(location.search);
+
+// ---------- Язык: 'ru' | 'uz' | 'both'. Два независимых режима: вопросы и интерфейс (?lang=), варианты ответов (?olang=) ----------
+// Экран: клавиша L меняет язык вопросов, клавиша O меняет язык ответов. Телефон и экран: кнопки RU / UZ / RU + UZ
+const LANGS = ['ru', 'uz', 'both'];
+const pick = (param, key) => { const v = q.get(param) || localStorage.getItem(key); return LANGS.includes(v) ? v : 'both'; };
+let LANG = pick('lang', 'lang'), OLANG = pick('olang', 'olang');
+const setLang = l => { LANG = l; try { localStorage.setItem('lang', l); } catch (e) {} };
+const setOLang = l => { OLANG = l; try { localStorage.setItem('olang', l); } catch (e) {} };
+// текст на нужном языке; в режиме "both" узбекская подпись идёт под русским (если она есть и отличается)
+const mk = mode => (ru, uz) => !uz || uz === ru || mode === 'ru' ? ru : mode === 'uz' ? uz : `${ru}<small class="uz">${uz}</small>`;
+const L = (ru, uz) => mk(LANG)(ru, uz);   // вопросы и интерфейс
+const Lo = (ru, uz) => mk(OLANG)(ru, uz); // варианты ответов
+const langBar = () => {
+  const grp = (attr, cur, title) => `<div class="grp"><span>${title}</span>${[['ru', 'RU'], ['uz', 'UZ'], ['both', 'RU + UZ']].map(([k, t]) => `<button data-${attr}="${k}" class="${cur === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
+  return `<div class="lang">${grp('lang', LANG, 'Вопросы · Savollar')}${grp('olang', OLANG, 'Ответы · Javoblar')}</div>`;
+};
 
 async function getQuestion() {
   const {data} = await db.from('state').select('current_question').eq('id', 1).maybeSingle();
@@ -121,7 +158,7 @@ async function phone() {
   const seat = q.get('seat').toUpperCase();
   const r = await db.from('people').upsert({device_id: id, seat});
   if (!r.error) await db.from('people').delete().eq('seat', seat).neq('device_id', id); // новый сканирующий забирает место у предыдущего
-  if (r.error) { app.innerHTML = '<p class="bad">Ошибка входа: ' + r.error.message + '</p>'; return; }
+  if (r.error) { app.innerHTML = '<p class="bad">' + L('Ошибка входа: ', 'Kirishda xatolik: ') + r.error.message + '</p>'; return; }
   let cur = 0, mine = null, st = '';
   async function refresh() {
     try {
@@ -131,19 +168,22 @@ async function phone() {
         cur = n; st = ''; mine = data ? data.answer : null;
       }
       draw();
-    } catch (e) { if (!cur) app.innerHTML = '<p class="hint">Нет связи, пробуем снова…</p>'; }
+    } catch (e) { if (!cur) app.innerHTML = '<p class="hint">' + L('Нет связи, пробуем снова…', 'Aloqa yoʻq, qayta urinamiz…') + '</p>'; }
   }
   function draw() {
     const Qn = Q[cur];
-    if (!Qn) { app.innerHTML = '<p class="hint">Подключаемся…</p>'; return; }
-    const msg = st === 'ok' ? '<p class="ok">✓ Ответ принят, ваше место горит. Нажмите на него ещё раз, чтобы снять.</p>'
-      : st === 'off' ? '<p class="hint">Ответ снят, ваше место погасло.</p>'
-      : st === 'lost' ? '<p class="bad">Это место занял другой человек или данные сброшены. Отсканируйте QR на кресле ещё раз.</p>'
-      : st ? `<p class="bad">Ответ не сохранился: ${st}</p>` : '';
-    app.innerHTML = `<div class="seat">Место ${seat}, вопрос ${cur} из ${TOTAL} (${V})</div><h1>${Qn.q}</h1>${msg}<div class="opts${Qn.o.length > 4 ? ' many' : ''}">` +
-      Qn.o.map((o, i) => `<button class="opt ${mine === null ? '' : mine === String(i) ? 'sel' : 'dim'}" data-i="${i}" style="background:${cols(cur)[i]};color:${ink(cols(cur)[i])}">${o[0]}<br>${o[1]}</button>`).join('') + '</div>';
+    if (!Qn) { app.innerHTML = '<p class="hint">' + L('Подключаемся…', 'Ulanmoqda…') + '</p>'; return; }
+    const msg = st === 'ok' ? '<p class="ok">' + L('✓ Ответ принят, ваше место горит. Нажмите на него ещё раз, чтобы снять.', '✓ Javob qabul qilindi, oʻrningiz yonib turibdi. Bekor qilish uchun shu javobni yana bosing.') + '</p>'
+      : st === 'off' ? '<p class="hint">' + L('Ответ снят, ваше место погасло.', 'Javob bekor qilindi, oʻrningiz oʻchdi.') + '</p>'
+      : st === 'lost' ? '<p class="bad">' + L('Это место занял другой человек или данные сброшены. Отсканируйте QR на кресле ещё раз.', 'Bu oʻrinni boshqa odam egalladi yoki maʼlumotlar tozalandi. Oʻrindiqdagi QR-kodni qaytadan skanerlang.') + '</p>'
+      : st ? `<p class="bad">${L('Ответ не сохранился: ', 'Javob saqlanmadi: ')}${st}</p>` : '';
+    app.innerHTML = `${langBar()}<div class="seat">${L(`Место ${seat}, вопрос ${cur} из ${TOTAL} (${V})`, `Oʻrin ${seat}, ${TOTAL} tadan ${cur}-savol (${V})`)}</div><h1>${L(...Qn.q)}</h1>${msg}<div class="opts${Qn.o.length > 4 ? ' many' : ''}">` +
+      Qn.o.map((o, i) => `<button class="opt ${mine === null ? '' : mine === String(i) ? 'sel' : 'dim'}" data-i="${i}" style="background:${cols(cur)[i]};color:${ink(cols(cur)[i])}">${o[0]}<br>${Lo(o[1], o[2])}</button>`).join('') + '</div>';
   }
   app.onclick = async e => {
+    const lb = e.target.closest('[data-lang]'), ob = e.target.closest('[data-olang]');
+    if (lb) { setLang(lb.dataset.lang); draw(); return; }
+    if (ob) { setOLang(ob.dataset.olang); draw(); return; }
     const b = e.target.closest('.opt');
     if (!b) return;
     if (mine === b.dataset.i) { // повторное нажатие снимает ответ
@@ -172,7 +212,7 @@ async function phone() {
 function showQR(seat) {
   const m = document.createElement('div');
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);display:grid;place-items:center;z-index:9';
-  m.innerHTML = `<div style="background:#fff;color:#000;padding:20px;border-radius:16px;text-align:center"><div id="mq" style="display:flex;justify-content:center"></div><b style="font-size:28px">${seat}</b><p>Наведите камеру телефона. Клик закроет окно.</p></div>`;
+  m.innerHTML = `<div style="background:#fff;color:#000;padding:20px;border-radius:16px;text-align:center"><div id="mq" style="display:flex;justify-content:center"></div><b style="font-size:28px">${seat}</b><p>Наведите камеру телефона. Клик закроет окно.<br><small>Telefon kamerasini QR-kodga qarating. Oynani yopish uchun bosing.</small></p></div>`;
   m.onclick = () => m.remove();
   document.body.append(m);
   new QRCode($('#mq'), {text: location.origin + location.pathname + '?seat=' + seat, width: 240, height: 240});
@@ -182,10 +222,10 @@ function showQR(seat) {
 function screenView() {
   app.style.padding = '0';
   const blk = (a, b) => ROWS.map(r => { let h = ''; const st = a <= b ? 1 : -1; for (let n = a; n !== b + st; n += st) h += `<div class="s" data-s="${r}${n}"></div>`; return h; }).join('');
-  app.innerHTML = `<div class="scr"><div class="hd"><div><h1 id="qt"></h1><p class="sub">Отсканируйте QR на своём кресле и выберите ответ</p></div>
+  app.innerHTML = `<div class="scr"><div class="hd"><div><h1 id="qt"></h1><p class="sub" id="sub"></p></div>
     <div class="pg"><div class="pills">${Object.keys(Q).map(n => `<i data-n="${n}"></i>`).join('')}</div><p class="who" id="who"></p><p class="flt" id="flt"></p></div></div>
     <div class="hall${q.has('test') ? ' t' : ''}"><div class="blk b7">${blk(17, 11)}</div><div class="blk b10">${blk(1, 10)}</div></div>
-    <div class="leg" id="leg"></div><div class="dg" id="dg"></div></div><div class="nav"><button id="pv">‹</button><button id="nx2">›</button></div>`;
+    <div class="leg" id="leg"></div><div class="dg" id="dg"></div></div><div class="nav"><button id="pv">‹</button>${langBar()}<button id="nx2">›</button></div>`;
   let curQ = 1, busy = false, hide, flt = null; // flt: выбранная группа {вопрос, вариант}
   async function load() {
     const n = await getQuestion();
@@ -196,7 +236,8 @@ function screenView() {
       flt ? db.from('answers').select('device_id').eq('question_id', flt.q).eq('answer', String(flt.i)) : null
     ]);
     const allow = f && f.data ? new Set(f.data.map(x => x.device_id)) : null; // люди выбранной группы
-    $('#qt').textContent = Q[n].q;
+    $('#qt').innerHTML = L(...Q[n].q);
+    $('#sub').innerHTML = L('Отсканируйте QR на своём кресле и выберите ответ', 'Oʻrindiqdagi QR-kodni skanerlang va javobni tanlang');
     document.querySelectorAll('.pills i').forEach(i => i.className = +i.dataset.n === n ? 'on' : '');
     const C = cols(n), ans = {}, seated = {}, cnt = Q[n].o.map(() => 0);
     (a.data || []).forEach(x => ans[x.device_id] = x.answer);
@@ -209,13 +250,13 @@ function screenView() {
     const people = Object.values(seated);
     people.forEach(d => { if (allow && !allow.has(d)) return; if (C[ans[d]]) cnt[ans[d]]++; });
     const answered = cnt.reduce((x, y) => x + y, 0);
-    $('#who').textContent = (flt ? 'Выбрано ' : 'Ответили ') + answered;
+    $('#who').innerHTML = flt ? L('Выбрано ' + answered, 'Tanlandi: ' + answered) : L('Ответили ' + answered, 'Javob berganlar: ' + answered);
     $('#leg').innerHTML = Q[n].o.map((o, i) =>
       `<div class="lg${flt && flt.q === n ? (flt.i === i ? ' on' : ' dim') : ''}" data-i="${i}"><div class="bar"><i style="width:${answered ? cnt[i] / answered * 100 : 0}%;background:${C[i]}"></i></div>
-       <div class="row"><span><i class="k" style="background:${C[i]};box-shadow:0 0 12px ${C[i]}aa"></i>${o[1]}</span><b style="color:${C[i]}">${cnt[i]}</b></div></div>`
+       <div class="row"><span><i class="k" style="background:${C[i]};box-shadow:0 0 12px ${C[i]}aa"></i><div>${Lo(o[1], o[2])}</div></span><b style="color:${C[i]}">${cnt[i]}</b></div></div>`
     ).join('');
     $('#leg').className = 'leg' + (Q[n].o.length > 4 ? ' many' : '');
-    $('#flt').textContent = flt ? `Только: ${Q[flt.q].o[flt.i][1]}, вопрос ${flt.q} ✕` : '';
+    $('#flt').innerHTML = flt ? (o => L(`Только: ${OLANG === 'uz' ? o[2] || o[1] : o[1]}, вопрос ${flt.q}`, `Faqat: ${OLANG === 'ru' ? o[1] : o[2] || o[1]}, ${flt.q}-savol`) + ' ✕')(Q[flt.q].o[flt.i]) : '';
     const er = p.error || a.error, dg = $('#dg');
     dg.className = er ? 'dg bad' : 'dg';
     dg.textContent = er ? 'Ошибка базы: ' + er.message : V + ' ' + new Date().toLocaleTimeString();
@@ -232,6 +273,13 @@ function screenView() {
   const setFlt = i => { flt = flt && flt.q === curQ && flt.i === i ? null : {q: curQ, i}; load(); };
   $('#leg').onclick = e => { const el = e.target.closest('.lg'); if (el) setFlt(+el.dataset.i); };
   $('#flt').onclick = () => { flt = null; load(); };
+  const mark = () => document.querySelectorAll('.nav .lang button').forEach(b => b.classList.toggle('on', b.dataset.lang ? b.dataset.lang === LANG : b.dataset.olang === OLANG));
+  const applyLang = l => { setLang(l); mark(); load(); };
+  const applyOLang = l => { setOLang(l); mark(); load(); };
+  document.querySelector('.nav .lang').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.lang) applyLang(b.dataset.lang); else if (b.dataset.olang) applyOLang(b.dataset.olang);
+  };
   $('#pv').onclick = () => go(-1);
   $('#nx2').onclick = () => go(1);
   document.onkeydown = e => {
@@ -239,6 +287,8 @@ function screenView() {
     if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(-1); }
     if (/^[1-8]$/.test(e.key) && +e.key <= Q[curQ].o.length) setFlt(+e.key - 1);
     if (e.key === 'Escape') { flt = null; load(); }
+    if (e.key === 'l' || e.key === 'L') applyLang(LANGS[(LANGS.indexOf(LANG) + 1) % 3]);    // вопросы: RU → UZ → RU + UZ
+    if (e.key === 'o' || e.key === 'O') applyOLang(LANGS[(LANGS.indexOf(OLANG) + 1) % 3]); // ответы: RU → UZ → RU + UZ
   };
   document.onmousemove = () => {
     $('.nav').classList.add('show'); clearTimeout(hide);
@@ -257,7 +307,7 @@ function admin() {
     <div class="card danger"><h2>Очистить тестовые данные</h2><p class="hint">Удаляет все места и ответы. Нажмите один раз перед мероприятием.</p><button id="ra">Очистить всё</button></div>
     <p id="msg"></p>`;
   let cq = 1;
-  const show = n => { cq = n; $('#cq').textContent = 'Сейчас на экране: вопрос ' + n + '. ' + Q[n].q; };
+  const show = n => { cq = n; $('#cq').textContent = 'Сейчас на экране: вопрос ' + n + '. ' + Q[n].q[0]; };
   const run = async f => { const r = await f(); $('#msg').textContent = r.error ? 'Ошибка: ' + r.error.message : 'Готово'; return r; };
   const set = async n => { const r = await run(() => db.from('state').upsert({id: 1, current_question: n})); if (!r.error) show(n); };
   getQuestion().then(show);
