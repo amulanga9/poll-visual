@@ -64,10 +64,15 @@ button{cursor:pointer;background:#fff;color:#12122a;font-weight:800}
 .leg{row-gap:1.8vh}
 .leg.many .lg span{font-size:clamp(11px,1.15vw,20px)}
 .leg.many .lg b{font-size:clamp(20px,2.4vw,42px)}
+.lg{cursor:pointer;transition:opacity .3s,transform .3s}
+.lg.dim{opacity:.3}
+.lg.on{transform:scale(1.03)}
+.flt{display:inline-block;margin-top:1vh;padding:.35em .9em;border-radius:99px;background:rgba(255,255,255,.14);font-size:clamp(12px,1.2vw,20px);font-weight:800;cursor:pointer}
+.flt:empty{display:none}
 @media print{body{background:#fff}}
 </style></head><body><div id="app"></div>
 <script>
-const V = 'v7';
+const V = 'v8';
 const {url: SUPABASE_URL, key: SUPABASE_KEY} = window.CFG || {}; // ключи лежат в config.js
 
 // Порядок вариантов = цвета: коралловый, фиолетовый, янтарный, мятный
@@ -178,36 +183,39 @@ function screenView() {
   app.style.padding = '0';
   const blk = (a, b) => ROWS.map(r => { let h = ''; for (let n = a; n <= b; n++) h += `<div class="s" data-s="${r}${n}"></div>`; return h; }).join('');
   app.innerHTML = `<div class="scr"><div class="hd"><div><h1 id="qt"></h1><p class="sub">Отсканируйте QR на своём кресле и выберите ответ</p></div>
-    <div class="pg"><div class="pills">${Object.keys(Q).map(n => `<i data-n="${n}"></i>`).join('')}</div><p class="who" id="who"></p></div></div>
+    <div class="pg"><div class="pills">${Object.keys(Q).map(n => `<i data-n="${n}"></i>`).join('')}</div><p class="who" id="who"></p><p class="flt" id="flt"></p></div></div>
     <div class="hall${q.has('test') ? ' t' : ''}"><div class="blk b10">${blk(1, 10)}</div><div class="blk b7">${blk(11, 17)}</div></div>
     <div class="leg" id="leg"></div><div class="dg" id="dg"></div></div><div class="nav"><button id="pv">‹</button><button id="nx2">›</button></div>`;
-  let curQ = 1, busy = false, hide;
+  let curQ = 1, busy = false, hide, flt = null; // flt: выбранная группа {вопрос, вариант}
   async function load() {
     const n = await getQuestion();
     if (!busy) curQ = n;
-    const [p, a] = await Promise.all([
+    const [p, a, f] = await Promise.all([
       db.from('people').select('*'),
-      db.from('answers').select('*').eq('question_id', n)
+      db.from('answers').select('*').eq('question_id', n),
+      flt ? db.from('answers').select('device_id').eq('question_id', flt.q).eq('answer', String(flt.i)) : null
     ]);
+    const allow = f && f.data ? new Set(f.data.map(x => x.device_id)) : null; // люди выбранной группы
     $('#qt').textContent = Q[n].q;
     document.querySelectorAll('.pills i').forEach(i => i.className = +i.dataset.n === n ? 'on' : '');
     const C = cols(n), ans = {}, seated = {}, cnt = Q[n].o.map(() => 0);
     (a.data || []).forEach(x => ans[x.device_id] = x.answer);
     (p.data || []).forEach(x => seated[x.seat] = x.device_id);
     document.querySelectorAll('.s').forEach(el => {
-      const d = seated[el.dataset.s], an = d ? ans[d] : undefined;
+      const d = seated[el.dataset.s], an = d && (!allow || allow.has(d)) ? ans[d] : undefined;
       if (an !== undefined && C[an]) { el.style.background = C[an]; el.style.boxShadow = `0 0 calc(var(--d)*.6) ${C[an]}aa`; }
       else { el.style.background = ''; el.style.boxShadow = ''; }
     });
     const people = Object.values(seated);
-    people.forEach(d => { if (C[ans[d]]) cnt[ans[d]]++; });
+    people.forEach(d => { if (allow && !allow.has(d)) return; if (C[ans[d]]) cnt[ans[d]]++; });
     const answered = cnt.reduce((x, y) => x + y, 0);
-    $('#who').textContent = 'Ответили ' + answered;
+    $('#who').textContent = (flt ? 'Выбрано ' : 'Ответили ') + answered;
     $('#leg').innerHTML = Q[n].o.map((o, i) =>
-      `<div class="lg"><div class="bar"><i style="width:${answered ? cnt[i] / answered * 100 : 0}%;background:${C[i]}"></i></div>
+      `<div class="lg${flt && flt.q === n ? (flt.i === i ? ' on' : ' dim') : ''}" data-i="${i}"><div class="bar"><i style="width:${answered ? cnt[i] / answered * 100 : 0}%;background:${C[i]}"></i></div>
        <div class="row"><span><i class="k" style="background:${C[i]};box-shadow:0 0 12px ${C[i]}aa"></i>${o[1]}</span><b style="color:${C[i]}">${cnt[i]}</b></div></div>`
     ).join('');
     $('#leg').className = 'leg' + (Q[n].o.length > 4 ? ' many' : '');
+    $('#flt').textContent = flt ? `Только: ${Q[flt.q].o[flt.i][1]}, вопрос ${flt.q} ✕` : '';
     const er = p.error || a.error, dg = $('#dg');
     dg.className = er ? 'dg bad' : 'dg';
     dg.textContent = er ? 'Ошибка базы: ' + er.message : V + ' ' + new Date().toLocaleTimeString();
@@ -220,11 +228,17 @@ function screenView() {
     await db.from('state').upsert({id: 1, current_question: m});
     busy = false; load();
   };
+  // клик по названию ответа (или цифра 1-8): остаются только места этой группы на всех вопросах; повторный клик, крестик или Esc снимают
+  const setFlt = i => { flt = flt && flt.q === curQ && flt.i === i ? null : {q: curQ, i}; load(); };
+  $('#leg').onclick = e => { const el = e.target.closest('.lg'); if (el) setFlt(+el.dataset.i); };
+  $('#flt').onclick = () => { flt = null; load(); };
   $('#pv').onclick = () => go(-1);
   $('#nx2').onclick = () => go(1);
   document.onkeydown = e => {
     if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(1); }
     if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(-1); }
+    if (/^[1-8]$/.test(e.key) && +e.key <= Q[curQ].o.length) setFlt(+e.key - 1);
+    if (e.key === 'Escape') { flt = null; load(); }
   };
   document.onmousemove = () => {
     $('.nav').classList.add('show'); clearTimeout(hide);
