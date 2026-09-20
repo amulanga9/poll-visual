@@ -72,7 +72,7 @@ button{cursor:pointer;background:#fff;color:#12122a;font-weight:800}
 @media print{body{background:#fff}}
 </style></head><body><div id="app"></div>
 <script>
-const V = 'v8';
+const V = 'v9';
 const {url: SUPABASE_URL, key: SUPABASE_KEY} = window.CFG || {}; // ключи лежат в config.js
 
 // Порядок вариантов = цвета: коралловый, фиолетовый, янтарный, мятный
@@ -91,7 +91,7 @@ const ink = c => { // тёмный или белый текст в зависи�
   return .2126 * f(1) + .7152 * f(3) + .0722 * f(5) > .35 ? '#1a1a2e' : '#fff';
 };
 const ROWS = 'ABCDEFG'.split('');
-const NUMS = 17; // места 1-10: большая часть (7x10), 11-17: малая (7x7), между ними проход
+const NUMS = 17; // места 1-10: большая часть (7x10, справа), 11-17: малая (7x7, слева, нумерация от прохода к краю), между ними проход
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
@@ -181,10 +181,10 @@ function showQR(seat) {
 // ---------- Большой экран ----------
 function screenView() {
   app.style.padding = '0';
-  const blk = (a, b) => ROWS.map(r => { let h = ''; for (let n = a; n <= b; n++) h += `<div class="s" data-s="${r}${n}"></div>`; return h; }).join('');
+  const blk = (a, b) => ROWS.map(r => { let h = ''; const st = a <= b ? 1 : -1; for (let n = a; n !== b + st; n += st) h += `<div class="s" data-s="${r}${n}"></div>`; return h; }).join('');
   app.innerHTML = `<div class="scr"><div class="hd"><div><h1 id="qt"></h1><p class="sub">Отсканируйте QR на своём кресле и выберите ответ</p></div>
     <div class="pg"><div class="pills">${Object.keys(Q).map(n => `<i data-n="${n}"></i>`).join('')}</div><p class="who" id="who"></p><p class="flt" id="flt"></p></div></div>
-    <div class="hall${q.has('test') ? ' t' : ''}"><div class="blk b10">${blk(1, 10)}</div><div class="blk b7">${blk(11, 17)}</div></div>
+    <div class="hall${q.has('test') ? ' t' : ''}"><div class="blk b7">${blk(17, 11)}</div><div class="blk b10">${blk(1, 10)}</div></div>
     <div class="leg" id="leg"></div><div class="dg" id="dg"></div></div><div class="nav"><button id="pv">‹</button><button id="nx2">›</button></div>`;
   let curQ = 1, busy = false, hide, flt = null; // flt: выбранная группа {вопрос, вариант}
   async function load() {
